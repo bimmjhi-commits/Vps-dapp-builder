@@ -3,17 +3,17 @@ on:
   workflow_dispatch:
     inputs:
       app_name:
-        description: 'Nama Aplikasi'
         required: true
+        default: 'My App'
       app_url:
-        description: 'URL Website'
         required: true
+        default: 'https://google.com'
       package_name:
-        description: 'Package'
         required: true
+        default: 'com.example.app'
       version_name:
-        description: 'Versi'
         required: true
+        default: '1.0'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,14 +23,15 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Ganti Data
+      - uses: android-actions/setup-android@v3
+      - name: Fix Gradle Files
         run: |
-          sed -i "s|APP_URL_PLACEHOLDER|${{ inputs.app_url }}|g" app/src/main/java/com/dapp/webtoapk/MainActivity.kt
-          sed -i "s|APP_NAME_PLACEHOLDER|${{ inputs.app_name }}|g" app/src/main/AndroidManifest.xml
-      - name: Build
-        run: ./gradlew assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          echo "include ':app'" > settings.gradle
+          echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
+      - uses: gradle/actions/setup-gradle@v3
+      - run: gradle assembleDebug --stacktrace
+      - run: cp app/build/outputs/apk/debug/app-debug.apk app.apk
+      - uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: apk
+          path: '*.apk'
