@@ -80,18 +80,20 @@ jobs:
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           public class MainActivity extends Activity {
-              protected void onCreate(Bundle b) {
-                  super.onCreate(b);
-                  WebView w = new WebView(this);
-                  setContentView(w);
-                  w.setWebViewClient(new WebViewClient());
-                  w.getSettings().setJavaScriptEnabled(true);
-                  w.loadUrl("$URL");
-              }
+            protected void onCreate(Bundle b) {
+              super.onCreate(b);
+              WebView w = new WebView(this);
+              setContentView(w);
+              w.setWebViewClient(new WebViewClient());
+              w.getSettings().setJavaScriptEnabled(true);
+              w.loadUrl("$URL");
+            }
           }
           EOF
           echo '<resources/>' > app/src/main/res/values/strings.xml
       - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
       - run: gradle assembleDebug --stacktrace
       - run: cp app/build/outputs/apk/debug/app-debug.apk app.apk
       - uses: actions/upload-artifact@v4
