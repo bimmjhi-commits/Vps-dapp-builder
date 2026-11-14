@@ -9,13 +9,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env:
-      ANDROID_HOME: /home/runner/Android/Sdk
-      ANDROID_SDK_ROOT: /home/runner/Android/Sdk
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with: {java-version: '17', distribution: 'temurin'}
+      - uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+      - name: Fix SDK Path
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls $ANDROID_HOME
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
       - name: Create Full Project
         run: |
           PKG="${{ inputs.package_name }}"
@@ -24,11 +31,8 @@ jobs:
           mkdir -p app/src/main/java/$P
           mkdir -p app/src/main/res/values
           echo "include ':app'" > settings.gradle
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2g
-          android.useAndroidX=true
-          android.enableJetifier=true
-          EOF
+          echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
+          echo "sdk.dir=$ANDROID_HOME" >> local.properties
           cat > build.gradle <<'EOF'
           buildscript {
             repositories { google(); mavenCentral() }
@@ -54,13 +58,12 @@ jobs:
               targetCompatibility JavaVersion.VERSION_17
             }
           }
-          dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }
           EOF
           cat > app/src/main/AndroidManifest.xml <<EOF
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
           <uses-permission android:name="android.permission.INTERNET"/>
           <application android:label="${{ inputs.app_name }}"
-          android:theme="@style/Theme.AppCompat.Light">
+          android:theme="@android:style/Theme.Material.Light">
           <activity android:name=".MainActivity" android:exported="true">
           <intent-filter><action android:name="android.intent.action.MAIN"/>
           <category android:name="android.intent.category.LAUNCHER"/>
@@ -84,7 +87,6 @@ jobs:
           }
           EOF
           echo '<resources/>' > app/src/main/res/values/strings.xml
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.2'
