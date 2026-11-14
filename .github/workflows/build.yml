@@ -23,20 +23,45 @@ jobs:
           echo "include ':app'" > settings.gradle
           echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
           cat > build.gradle <<'EOF'
-          buildscript{repositories{google();mavenCentral()}}
-          dependencies{classpath 'com.android.tools.build:gradle:8.2.2'}}
-          allprojects{repositories{google();mavenCentral()}}
+          buildscript {
+            repositories {
+              google()
+              mavenCentral()
+            }
+            dependencies {
+              classpath "com.android.tools.build:gradle:8.2.2"
+            }
+          }
+          allprojects {
+            repositories {
+              google()
+              mavenCentral()
+            }
+          }
           EOF
           cat > app/build.gradle <<EOF
           apply plugin: 'com.android.application'
-          android{namespace "$PKG";compileSdk 34
-          defaultConfig{applicationId "$PKG";minSdk 24
-          targetSdk 34;versionCode 1
-          versionName "${{ inputs.version_name }}"}
-          buildTypes{release{minifyEnabled false}}
-          compileOptions{sourceCompatibility JavaVersion.VERSION_17
-          targetCompatibility JavaVersion.VERSION_17}}
-          dependencies{implementation 'androidx.appcompat:appcompat:1.6.1'}
+          android {
+            namespace "$PKG"
+            compileSdk 34
+            defaultConfig {
+              applicationId "$PKG"
+              minSdk 24
+              targetSdk 34
+              versionCode 1
+              versionName "${{ inputs.version_name }}"
+            }
+            buildTypes {
+              release { minifyEnabled false }
+            }
+            compileOptions {
+              sourceCompatibility JavaVersion.VERSION_17
+              targetCompatibility JavaVersion.VERSION_17
+            }
+          }
+          dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
           EOF
           cat > app/src/main/AndroidManifest.xml <<EOF
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -50,14 +75,20 @@ jobs:
           EOF
           cat > app/src/main/java/$P/MainActivity.java <<EOF
           package $PKG;
-          import android.app.Activity;import android.os.Bundle;
-          import android.webkit.WebView;import android.webkit.WebViewClient;
-          public class MainActivity extends Activity{
-          protected void onCreate(Bundle b){super.onCreate(b);
-          WebView w=new WebView(this);setContentView(w);
-          w.setWebViewClient(new WebViewClient());
-          w.getSettings().setJavaScriptEnabled(true);
-          w.loadUrl("$URL");}}
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  WebView w = new WebView(this);
+                  setContentView(w);
+                  w.setWebViewClient(new WebViewClient());
+                  w.getSettings().setJavaScriptEnabled(true);
+                  w.loadUrl("$URL");
+              }
+          }
           EOF
           echo '<resources/>' > app/src/main/res/values/strings.xml
       - uses: gradle/actions/setup-gradle@v3
