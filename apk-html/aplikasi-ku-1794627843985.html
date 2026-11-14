@@ -1,0 +1,578 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLOCK BLAST</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    background: #101820;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+}
+
+.game {
+    width: 100%;
+    max-width: 430px;
+    text-align: center;
+}
+
+.header {
+    margin-bottom: 25px;
+}
+
+.header h1 {
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #f5b942;
+}
+
+.header p {
+    color: #91a0ae;
+    font-size: 12px;
+    margin-top: 7px;
+    letter-spacing: 2px;
+}
+
+.score-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.score-box {
+    flex: 1;
+    background: #1c2a36;
+    border: 1px solid #344452;
+    border-radius: 12px;
+    padding: 15px 8px;
+}
+
+.score-box span {
+    display: block;
+    font-size: 11px;
+    color: #91a0ae;
+    margin-bottom: 7px;
+}
+
+.score-box strong {
+    font-size: 25px;
+    color: #f5b942;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 5px;
+    background: #1c2a36;
+    border: 2px solid #344452;
+    border-radius: 12px;
+    padding: 7px;
+    aspect-ratio: 1;
+}
+
+.cell {
+    background: #293946;
+    border-radius: 5px;
+    aspect-ratio: 1;
+    transition: background .15s;
+}
+
+.cell.filled {
+    background: var(--block-color, #f5b942);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+}
+
+.cell.preview {
+    background: rgba(245,185,66,.45);
+}
+
+.cell.invalid {
+    background: rgba(255,70,70,.5);
+}
+
+.pieces-title {
+    margin: 23px 0 13px;
+    font-size: 13px;
+    color: #91a0ae;
+    letter-spacing: 2px;
+}
+
+.pieces {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    min-height: 100px;
+    gap: 10px;
+}
+
+.piece {
+    display: grid;
+    grid-template-columns: repeat(4, 20px);
+    grid-template-rows: repeat(4, 20px);
+    gap: 3px;
+    padding: 8px;
+    border-radius: 10px;
+    background: #1c2a36;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.piece.selected {
+    border-color: #f5b942;
+    transform: translateY(-5px);
+    background: #293946;
+}
+
+.mini-cell {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: transparent;
+}
+
+.mini-cell.filled {
+    background: var(--block-color);
+}
+
+.piece.empty {
+    opacity: .2;
+    pointer-events: none;
+}
+
+.hint {
+    margin-top: 15px;
+    color: #91a0ae;
+    font-size: 12px;
+}
+
+.restart {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: #f5b942;
+    color: #101820;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.restart:active {
+    transform: scale(.97);
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    z-index: 10;
+}
+
+.overlay.show {
+    display: flex;
+}
+
+.modal {
+    background: #1c2a36;
+    border: 1px solid #465665;
+    padding: 35px 25px;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 320px;
+}
+
+.modal h2 {
+    color: #f5b942;
+    font-size: 28px;
+    margin-bottom: 12px;
+}
+
+.modal p {
+    color: #aab6c2;
+    margin-bottom: 20px;
+}
+
+@media(max-width:360px) {
+    .board {
+        gap: 3px;
+        padding: 5px;
+    }
+
+    .piece {
+        grid-template-columns: repeat(4, 16px);
+        grid-template-rows: repeat(4, 16px);
+        gap: 2px;
+    }
+
+    .mini-cell {
+        width: 16px;
+        height: 16px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="game">
+
+    <div class="header">
+        <h1>BLOCK BLAST</h1>
+        <p>PUZZLE YOUR BRAIN</p>
+    </div>
+
+    <div class="score-container">
+        <div class="score-box">
+            <span>SCORE</span>
+            <strong id="score">0</strong>
+        </div>
+
+        <div class="score-box">
+            <span>BEST SCORE</span>
+            <strong id="best">0</strong>
+        </div>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="pieces-title">CHOOSE YOUR BLOCK</div>
+
+    <div class="pieces" id="pieces"></div>
+
+    <div class="hint">
+        Pilih blok, lalu pilih posisi di papan.
+    </div>
+
+    <button class="restart" onclick="restartGame()">
+        RESTART GAME
+    </button>
+
+</div>
+
+<div class="overlay" id="gameOver">
+    <div class="modal">
+        <h2>GAME OVER!</h2>
+        <p>Permainan selesai. Coba pecahkan rekor skor kamu!</p>
+        <h3 id="finalScore">Score: 0</h3>
+        <button class="restart" onclick="restartGame()">
+            PLAY AGAIN
+        </button>
+    </div>
+</div>
+
+<script>
+const SIZE = 8;
+
+const COLORS = [
+    "#f5b942",
+    "#45b7e8",
+    "#e96c78",
+    "#8c78ef",
+    "#54cf94",
+    "#f28c45"
+];
+
+const SHAPES = [
+    [[0,0]],
+    [[0,0],[0,1]],
+    [[0,0],[0,1],[0,2]],
+    [[0,0],[1,0],[2,0]],
+    [[0,0],[0,1],[1,0],[1,1]],
+    [[0,0],[0,1],[0,2],[0,3]],
+    [[0,0],[1,0],[2,0],[3,0]],
+    [[0,0],[0,1],[0,2],[1,1]],
+    [[0,1],[1,0],[1,1],[2,1]],
+    [[0,0],[1,0],[1,1],[1,2]],
+    [[0,2],[1,0],[1,1],[1,2]],
+    [[0,0],[1,0],[2,0],[2,1]],
+    [[0,1],[1,1],[2,0],[2,1]],
+    [[0,0],[0,1],[1,1],[1,2]],
+    [[0,1],[0,2],[1,0],[1,1]],
+    [[0,0],[1,0],[2,0],[2,1],[2,2]],
+    [[0,0],[0,1],[0,2],[1,0],[2,0]]
+];
+
+let grid = [];
+let pieces = [];
+let selected = -1;
+let score = 0;
+let best = Number(localStorage.getItem("blockBlastBest")) || 0;
+
+const board = document.getElementById("board");
+const piecesElement = document.getElementById("pieces");
+
+document.getElementById("best").textContent = best;
+
+function createBoard() {
+    board.innerHTML = "";
+    grid = Array.from({length: SIZE}, () =>
+        Array(SIZE).fill(null)
+    );
+
+    for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+
+            cell.addEventListener("click", () => {
+                placePiece(r, c);
+            });
+
+            board.appendChild(cell);
+        }
+    }
+}
+
+function randomPiece() {
+    const shape = SHAPES[
+        Math.floor(Math.random() * SHAPES.length)
+    ];
+
+    return {
+        shape: shape.map(p => [...p]),
+        color: COLORS[
+            Math.floor(Math.random() * COLORS.length)
+        ]
+    };
+}
+
+function createPieces() {
+    pieces = [
+        randomPiece(),
+        randomPiece(),
+        randomPiece()
+    ];
+
+    selected = -1;
+    renderPieces();
+}
+
+function renderPieces() {
+    piecesElement.innerHTML = "";
+
+    pieces.forEach((piece, index) => {
+        const container = document.createElement("div");
+        container.className = "piece";
+
+        if (!piece) {
+            container.classList.add("empty");
+        }
+
+        if (selected === index) {
+            container.classList.add("selected");
+        }
+
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                const cell = document.createElement("div");
+                cell.className = "mini-cell";
+
+                if (piece && piece.shape.some(
+                    p => p[0] === r && p[1] === c
+                )) {
+                    cell.classList.add("filled");
+                    cell.style.setProperty(
+                        "--block-color", piece.color
+                    );
+                }
+
+                container.appendChild(cell);
+            }
+        }
+
+        container.addEventListener("click", () => {
+            if (!piece) return;
+
+            selected = index;
+            renderPieces();
+        });
+
+        piecesElement.appendChild(container);
+    });
+}
+
+function canPlace(shape, row, col) {
+    return shape.every(([r, c]) => {
+        const nr = row + r;
+        const nc = col + c;
+
+        return (
+            nr >= 0 &&
+            nr < SIZE &&
+            nc >= 0 &&
+            nc < SIZE &&
+            grid[nr][nc] === null
+        );
+    });
+}
+
+function placePiece(row, col) {
+    if (selected === -1) return;
+
+    const piece = pieces[selected];
+
+    if (!piece) return;
+
+    if (!canPlace(piece.shape, row, col)) {
+        return;
+    }
+
+    piece.shape.forEach(([r, c]) => {
+        grid[row + r][col + c] = piece.color;
+    });
+
+    score += piece.shape.length;
+
+    pieces[selected] = null;
+    selected = -1;
+
+    clearLines();
+    updateBoard();
+    updateScore();
+    renderPieces();
+
+    if (pieces.every(p => p === null)) {
+        createPieces();
+    }
+
+    checkGameOver();
+}
+
+function clearLines() {
+    let rows = [];
+    let cols = [];
+
+    for (let r = 0; r < SIZE; r++) {
+        if (grid[r].every(cell => cell !== null)) {
+            rows.push(r);
+        }
+    }
+
+    for (let c = 0; c < SIZE; c++) {
+        let full = true;
+
+        for (let r = 0; r < SIZE; r++) {
+            if (grid[r][c] === null) {
+                full = false;
+                break;
+            }
+        }
+
+        if (full) cols.push(c);
+    }
+
+    const total = rows.length + cols.length;
+
+    if (total === 0) return;
+
+    rows.forEach(r => {
+        for (let c = 0; c < SIZE; c++) {
+            grid[r][c] = null;
+        }
+    });
+
+    cols.forEach(c => {
+        for (let r = 0; r < SIZE; r++) {
+            grid[r][c] = null;
+        }
+    });
+
+    score += total * 10 + (total > 1 ? total * 5 : 0);
+}
+
+function updateBoard() {
+    const cells = board.children;
+
+    for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+            const cell = cells[r * SIZE + c];
+
+            cell.classList.remove("filled");
+            cell.style.removeProperty("--block-color");
+
+            if (grid[r][c] !== null) {
+                cell.classList.add("filled");
+                cell.style.setProperty(
+                    "--block-color", grid[r][c]
+                );
+            }
+        }
+    }
+}
+
+function updateScore() {
+    document.getElementById("score").textContent = score;
+
+    if (score > best) {
+        best = score;
+        localStorage.setItem("blockBlastBest", best);
+    }
+
+    document.getElementById("best").textContent = best;
+}
+
+function checkGameOver() {
+    const possible = pieces.some(piece => {
+        if (!piece) return false;
+
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                if (canPlace(piece.shape, r, c)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    });
+
+    if (!possible) {
+        document.getElementById("finalScore").textContent =
+            "Score: " + score;
+
+        document.getElementById("gameOver")
+            .classList.add("show");
+    }
+}
+
+function restartGame() {
+    score = 0;
+    selected = -1;
+
+    document.getElementById("score").textContent = "0";
+    document.getElementById("gameOver")
+        .classList.remove("show");
+
+    createBoard();
+    createPieces();
+    updateScore();
+}
+
+restartGame();
+</script>
+
+</body>
+</html>
