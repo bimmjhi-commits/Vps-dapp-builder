@@ -7,7 +7,7 @@ on:
         required: true
         default: 'My App'
       app_url:
-        required: true
+        required: false
         default: 'https://google.com'
       package_name:
         required: true
@@ -25,6 +25,26 @@ on:
         options:
           - 'true'
           - 'false'
+      source_type:
+        description: 'Jenis sumber: url / zip / html'
+        required: false
+        default: 'url'
+        type: string
+      html_code_url:
+        description: 'URL publik file HTML hasil upload (untuk mode HTML)'
+        required: false
+        default: ''
+        type: string
+      html_url:
+        description: 'Alias html_code_url untuk kompatibilitas'
+        required: false
+        default: ''
+        type: string
+      zip_url:
+        description: 'URL publik file ZIP (untuk mode ZIP)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   build:
@@ -32,8 +52,98 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - uses: actions/checkout@v5
+
+      - name: Validate Inputs & Prepare WebView Source
+        env:
+          INPUT_SOURCE_TYPE: ${{ inputs.source_type }}
+          INPUT_APP_URL: ${{ inputs.app_url }}
+          INPUT_HTML_CODE_URL: ${{ inputs.html_code_url }}
+          INPUT_HTML_URL: ${{ inputs.html_url }}
+          INPUT_ZIP_URL: ${{ inputs.zip_url }}
+        run: |
+          echo "source_type=${{ inputs.source_type }}"
+          echo "html_code_url=${{ inputs.html_code_url }}"
+          echo "html_url=${{ inputs.html_url }}"
+          echo "zip_url=${{ inputs.zip_url }}"
+
+          SRC_TYPE=$(echo "${INPUT_SOURCE_TYPE:-url}" | tr '[:upper:]' '[:lower:]' | xargs)
+          if [ -z "$SRC_TYPE" ]; then
+            SRC_TYPE="url"
+          fi
+
+          if [ "$SRC_TYPE" = "url" ]; then
+            if [ -n "$INPUT_ZIP_URL" ]; then
+              SRC_TYPE="zip"
+            elif [ -n "$INPUT_HTML_CODE_URL" ]; then
+              SRC_TYPE="html"
+            fi
+          fi
+
+          mkdir -p app/src/main/assets
+
+          if [ "$SRC_TYPE" = "html" ]; then
+            TARGET_HTML_URL="$INPUT_HTML_CODE_URL"
+            if [ -z "$TARGET_HTML_URL" ]; then
+              TARGET_HTML_URL="$INPUT_HTML_URL"
+            fi
+            if [ -z "$TARGET_HTML_URL" ]; then
+              echo "html_code_url kosong untuk mode HTML"
+              exit 1
+            fi
+            echo "Downloading HTML source from $TARGET_HTML_URL..."
+            curl -fsSL "$TARGET_HTML_URL" -o app/src/main/assets/index.html
+            if [ ! -s app/src/main/assets/index.html ]; then
+              echo "Gagal mengunduh file HTML atau file kosong"
+              exit 1
+            fi
+            APP_URL_FINAL="file:///android_asset/index.html"
+
+          elif [ "$SRC_TYPE" = "zip" ] || [ -n "$INPUT_ZIP_URL" ]; then
+            TARGET_ZIP_URL="$INPUT_ZIP_URL"
+            if [ -z "$TARGET_ZIP_URL" ]; then
+              TARGET_ZIP_URL="$INPUT_HTML_URL"
+            fi
+            if [ -z "$TARGET_ZIP_URL" ]; then
+              echo "zip_url kosong untuk mode ZIP"
+              exit 1
+            fi
+            echo "Downloading ZIP bundle from $TARGET_ZIP_URL..."
+            curl -fsSL "$TARGET_ZIP_URL" -o source_assets.zip
+            mkdir -p tmp_zip_extract
+            unzip -o -q source_assets.zip -d tmp_zip_extract
+
+            if [ -f "tmp_zip_extract/index.html" ]; then
+              cp -R tmp_zip_extract/. app/src/main/assets/
+            else
+              FIRST_INDEX=$(find tmp_zip_extract -maxdepth 3 -iname "index.html" | head -n 1)
+              if [ -z "$FIRST_INDEX" ]; then
+                echo "index.html tidak ditemukan di dalam file ZIP"
+                exit 1
+              fi
+              INDEX_DIR=$(dirname "$FIRST_INDEX")
+              cp -R "$INDEX_DIR"/. app/src/main/assets/
+            fi
+            rm -rf tmp_zip_extract source_assets.zip
+
+            if [ ! -f app/src/main/assets/index.html ]; then
+              echo "app/src/main/assets/index.html gagal disiapkan dari ZIP"
+              exit 1
+            fi
+            APP_URL_FINAL="file:///android_asset/index.html"
+
+          else
+            if [ -z "$INPUT_APP_URL" ]; then
+              echo "app_url kosong untuk mode URL"
+              exit 1
+            fi
+            APP_URL_FINAL="$INPUT_APP_URL"
+          fi
+
+          echo "APP_URL_FINAL=$APP_URL_FINAL" >> "$GITHUB_ENV"
+          echo "Resolved app_url_final=$APP_URL_FINAL (mode=$SRC_TYPE)"
 
       - uses: actions/setup-java@v5
         with:
@@ -43,8 +153,9 @@ jobs:
       - name: Create Full Project
         run: |
           PKG="${{ inputs.package_name }}"
-          URL="${{ inputs.app_url }}"
+          URL="${{ env.APP_URL_FINAL }}"
           P=$(echo $PKG | tr '.' '/')
+
           mkdir -p app/src/main/java/$P
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/mipmap-hdpi
@@ -52,12 +163,12 @@ jobs:
           mkdir -p app/src/main/res/mipmap-xhdpi
           mkdir -p app/src/main/res/mipmap-xxhdpi
           mkdir -p app/src/main/res/mipmap-xxxhdpi
+          mkdir -p app/src/main/assets
 
           echo "include ':app'" > settings.gradle
           echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-          # ICON - download dari icon_url
           if [ -n "${{ inputs.icon_url }}" ]; then
             curl -L "${{ inputs.icon_url }}" -o icon.png
             for d in hdpi mdpi xhdpi xxhdpi xxxhdpi; do
@@ -68,7 +179,6 @@ jobs:
             ICON_LINE=''
           fi
 
-          # THEME - fullscreen atau tidak
           if [ "${{ inputs.fullscreen }}" = "true" ]; then
             THEME="@android:style/Theme.NoTitleBar.Fullscreen"
           else
@@ -137,6 +247,7 @@ jobs:
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
           import android.webkit.WebSettings;
+
           public class MainActivity extends Activity {
             private WebView w;
             protected void onCreate(Bundle b) {
@@ -152,6 +263,8 @@ jobs:
               s.setLoadWithOverviewMode(true);
               s.setUseWideViewPort(true);
               s.setAllowFileAccess(true);
+              s.setAllowFileAccessFromFileURLs(true);
+              s.setAllowUniversalAccessFromFileURLs(true);
               s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
               w.setWebViewClient(new WebViewClient() {
                 public boolean shouldOverrideUrlLoading(WebView v, String u) {
@@ -180,9 +293,7 @@ jobs:
           cache-disabled: true
 
       - run: gradle assembleDebug --stacktrace
-
       - run: cp app/build/outputs/apk/debug/app-debug.apk app.apk
-
       - uses: actions/upload-artifact@v4
         with:
           name: apk
